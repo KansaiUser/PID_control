@@ -37,6 +37,7 @@ int main() {
   /**
    * TODO: Initialize the pid variable.
    */
+  pid.Init(0.2,3.0, 0.004);  // For starters let's begin with this
 
   h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                      uWS::OpCode opCode) {
@@ -53,7 +54,7 @@ int main() {
 
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          double cte = std::stod(j[1]["cte"].get<string>());
+          double cte = std::stod(j[1]["cte"].get<string>());  //Cross Track Error
           double speed = std::stod(j[1]["speed"].get<string>());
           double angle = std::stod(j[1]["steering_angle"].get<string>());
           double steer_value;
@@ -64,7 +65,19 @@ int main() {
            *   Maybe use another PID controller to control the speed!
            */
           
+          // We have a steering angle that is the one that we have to control
+          // (it is the equivalent to y_trajectory in the python)
+          // We have a CTE that we want to make 0 with PID
+          // that is equivalent to robot.y in the python lessons
+
+          pid.UpdateError(cte);  //update the errors
+          steer_value = pid.GetResult();
+
+
+
+
           // DEBUG
+          std::cout << "Speed: "<< speed << " angle: "<<angle<<std::endl;
           std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
                     << std::endl;
 
