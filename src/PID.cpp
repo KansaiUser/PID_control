@@ -16,7 +16,9 @@ void PID::Init(double Kp_, double Ki_, double Kd_) {
   Ki = Ki_;
   Kd = Kd_;
 
-  mycte=0;
+  previous_cte=0;  //perhaps change this
+  //sum_cte=0;
+
 
 }
 
@@ -24,10 +26,11 @@ void PID::UpdateError(double cte) {
   /**
    * TODO: Update PID errors based on cte.
    */
-  mycte= cte;
+  //mycte= cte;
   p_error=cte;
-  d_error=0;
-  i_error=0;
+  d_error=cte- previous_cte ;  //supposed to be divided by dt but do we have dt??
+  i_error += cte;
+  previous_cte = cte;
 }
 
 double PID::TotalError() {
@@ -39,5 +42,6 @@ double PID::TotalError() {
 
 double PID::GetResult(){
 
-   double res= -Kp * p_error;
+  double res= -Kp * p_error -Kd * d_error -Ki* i_error;
+  return  res;
 }

@@ -41,7 +41,8 @@ class PID {
   double i_error;
   double d_error;
 
-  double mycte;
+  double previous_cte;
+  //double sum_cte;
 
   /**
    * PID Coefficients
