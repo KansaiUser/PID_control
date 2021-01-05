@@ -37,10 +37,10 @@ int main() {
   /**
    * TODO: Initialize the pid variable.
    */
-//  pid.Init(0.2,0.004,3.0);  // For starters let's begin with this
+//  pid.Init(0.2,0.004,3.0);  // For starters let's begin with this does not work
 //  pid.Init(0.2,0,0); 
-  pid.Init(0.2,0,3.0); 
-//  pid.Init(0.2,0.004,3.0); 
+//  pid.Init(0.2,0,3.0); 
+  pid.Init(0.2,0.0004,3.0); // For some reason this works to some extend but it does not improve PD
 
   h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                      uWS::OpCode opCode) {
