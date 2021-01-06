@@ -30,48 +30,19 @@ string hasData(string s) {
   return "";
 }
 
-void resetSim(uWS::WebSocket<uWS::SERVER> ws){
-    std::string reset_msg = "42[\"reset\",{}]";
-    ws.send(reset_msg.data(), reset_msg.length(), uWS::OpCode::TEXT);
-}
-void resetErrors(double &err ){
-
-    err=0;
-}
-
-
-
-int main(int argc, char *argv[]) {
+int main() {
   uWS::Hub h;
-  bool twiddle=false;
-
-  std::cout << "There are " << argc << " arguments:\n";
-  if((argc>1)&& (std::string(argv[1])=="twiddle")  ){
-      twiddle= true; //by default
-  }
-  
 
   PID pid;
-//  bool twiddle = false; //true;
-  double p[3] = {0.2, 0.0004, 3.0};
-  double dp[3] = {.1, .0001, .1};
-  
-  /**pid.Init(p[0],p[1],p[2]);
+  /**
    * TODO: Initialize the pid variable.
    */
 //  pid.Init(0.2,0.004,3.0);  // For starters let's begin with this does not work
 //  pid.Init(0.2,0,0); 
 //  pid.Init(0.2,0,3.0); 
-  if(twiddle==true){
-    pid.Init(p[0],p[1],p[2]);
-  }
-  else{
-	pid.Init(0.2,0.0004,3.0); // For some reason this works to some extend but it does not improve PD  
-  }
-  std::cout<<"Twiddle: "<<twiddle<<std::endl;
+  pid.Init(0.2,0.0004,3.0); // For some reason this works to some extend but it does not improve PD
 
-  h.onMessage([&pid, &p, &dp ,&twiddle]
-              (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
+  h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -90,21 +61,13 @@ int main(int argc, char *argv[]) {
           double speed = std::stod(j[1]["speed"].get<string>());
           double angle = std::stod(j[1]["steering_angle"].get<string>());
           double steer_value;
-		  json msgJson;
           /**
            * TODO: Calculate steering value here, remember the steering value is
            *   [-1, 1].
            * NOTE: Feel free to play around with the throttle and speed.
            *   Maybe use another PID controller to control the speed!
            */
-      
-	      if(twiddle){
-			  
-
-
-
-          }
-		  else{  //Not twiddle
+          
           // We have a steering angle that is the one that we have to control
           // (it is the equivalent to y_trajectory in the python)
           // We have a CTE that we want to make 0 with PID
@@ -123,13 +86,12 @@ int main(int argc, char *argv[]) {
           std::cout << "CTE: " << cte << " Steering Value: " << steer_value 
                     << std::endl;
 
-          //json msgJson;
+          json msgJson;
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = 0.3;
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-		  } //not twiddle
         }  // end "telemetry" if
       } else {
         // Manual driving
@@ -151,7 +113,7 @@ int main(int argc, char *argv[]) {
 
   int port = 4567;
   if (h.listen(port)) {
-    std::cout << "Listening to port bubu " << port << std::endl;
+    std::cout << "Listening to port " << port << std::endl;
   } else {
     std::cerr << "Failed to listen to port" << std::endl;
     return -1;

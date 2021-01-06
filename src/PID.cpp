@@ -18,6 +18,8 @@ void PID::Init(double Kp_, double Ki_, double Kd_) {
 
   previous_cte=0;  //perhaps change this
   //sum_cte=0;
+  total_error=0;
+  i_error=0;
 
 
 }
