@@ -34,12 +34,12 @@ void resetSim(uWS::WebSocket<uWS::SERVER> ws){
     std::string reset_msg = "42[\"reset\",{}]";
     ws.send(reset_msg.data(), reset_msg.length(), uWS::OpCode::TEXT);
 }
-/*void resetErrors(double &err ){
 
-    err=0;
-}
-*/
-
+enum state{
+    prerun,
+    running,
+    postrun
+};
 
 int main(int argc, char *argv[]) {
   uWS::Hub h;
@@ -57,9 +57,16 @@ int main(int argc, char *argv[]) {
   double dp[3] = {.1, .0001, .1};
   bool first_time=true;
   int n=0;
-  int max_n=100;
+  int max_n=1000;
   //double elerror;
   double best_error;
+  double run_error;
+  double tolerance=0.001;
+  double twi_i=0;
+  int fails=0;
+
+  int p_iterator=0;
+  state robot_state=prerun;
   
   /**pid.Init(p[0],p[1],p[2]);
    * TODO: Initialize the pid variable.
@@ -75,7 +82,8 @@ int main(int argc, char *argv[]) {
   }
   std::cout<<"Twiddle: "<<twiddle<<std::endl;
 
-  h.onMessage([&pid, &p, &dp ,&twiddle, &first_time,&n, &max_n, &best_error]
+  h.onMessage([&pid, &p, &dp ,&twiddle, &first_time,&n, &max_n, &best_error,&tolerance,
+                &twi_i,&p_iterator,&robot_state,&run_error,&fails]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -119,21 +127,109 @@ int main(int argc, char *argv[]) {
                msgJson["throttle"] = 0.3;
                auto msg = "42[\"steer\"," + msgJson.dump() + "]";
                //std::cout << msg << std::endl;
-               std::cout<<n<<" ";
+               //std::cout<<n<<" ";
                ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
                if(n>=max_n){  //start calculating error
                     double elerror= pid.TotalError();  //here it is acumulating the error
-                    std::cout<<"el error: "<<elerror<<std::endl;
+                    //std::cout<<"el error: "<<elerror<<std::endl;
                     //elerror= elerror/(max_n);
                     if(n>=(2*max_n)){
-                        //first_time=false;
+                        first_time=false;
                         best_error= elerror/(max_n); 
                         std::cout<<"Best Error: "<<best_error<<std::endl;
-                        resetSim(ws);  //Reset the simulation
-                        twiddle=false;
+                        //resetSim(ws);  //Reset the simulation
+                        //twiddle=false;
                     }
                }
             }//first time end
+            else{  //Here we start twiddling
+               double sumdp= dp[0]+dp[1]+dp[2];
+               //std::cout<<"Sumdp is: "<<sumdp<<std::endl;
+               if(sumdp<tolerance){
+                   //We have reached the end of the twiddle algorithm
+                   std::cout<<"Twiddle ends with error "<<best_error<<std::endl; //put here the error 
+                   std::cout<<"Final P's "<<p[0]<<" | "<<p[1]<<" | "<<p[2]<<std::endl;
+
+                   twiddle=false;
+                   resetSim(ws);
+                   pid.Init(p[0],p[1],p[2]);  //final reset
+               }
+               else{
+                   if(robot_state==prerun){
+                       if(p_iterator==0)
+                           std::cout<<"Iteration: "<<twi_i<<" best error: "<<best_error<<std::endl;
+                           std::cout<<"Sumdp is: "<<sumdp<<std::endl;
+                       //TODO modify p[i]
+                       p[p_iterator] += dp[p_iterator];
+                       std::cout<<"Trial with P's "<<p[0]<<" | "<<p[1]<<" | "<<p[2]<<std::endl;
+                       resetSim(ws);
+                       pid.Init(p[0],p[1],p[2]);
+                       robot_state=running;
+                       n=0;
+
+                   }
+                   else if(robot_state==running){
+                        pid.UpdateError(cte);  //update the errors
+                        steer_value = pid.GetResult();
+                        if(steer_value>1) steer_value=1;
+                        if(steer_value<-1) steer_value=-1;
+                        msgJson["steering_angle"] = steer_value;
+                        msgJson["throttle"] = 0.3;
+                        auto msg = "42[\"steer\"," + msgJson.dump() + "]";
+                        //std::cout << msg << std::endl;
+                       //std::cout<<n<<" ";
+                        ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+                        n++;
+                        if(n>=max_n){  //start calculating error
+                           double elerror= pid.TotalError();  //here it is acumulating the error
+                           //std::cout<<"el error: "<<elerror<<std::endl;
+                    
+                           if(n>=(2*max_n)){
+                              robot_state=postrun;
+                              run_error= elerror/(max_n); 
+                              std::cout<<"This Run Error: "<<run_error<<std::endl;
+                              resetSim(ws);  //Reset the simulation
+                             //twiddle=false;
+                           }
+                        }
+                   }
+                   else{  //post run
+                      
+                      if(run_error<best_error){
+                          std::cout<<"Run error "<<run_error<<" is less than best error "<<best_error<<std::endl;
+                          best_error=run_error;
+                          dp[p_iterator] *=1.1;
+                          fails=0;
+                      }
+                      else{  //RUn again
+                        fails++;
+                        if(fails==1){ //fail the first time so repeat
+                            p[p_iterator] -= 3* dp[p_iterator];
+                            p_iterator--;
+                        }
+                        else{ //failed the second time
+                           p[p_iterator] +=dp[p_iterator];   //back to the original value
+                           dp[p_iterator] *= 0.9;
+                           fails=0;
+                        }
+
+                      }
+                      
+                      p_iterator++;
+                      if(p_iterator==3) {
+                            p_iterator=0;
+                            twi_i++;
+                           }
+                          
+                      robot_state=prerun;
+                      
+                   }
+                  //p[i]
+
+               }
+
+
+            }
 
 
           }
