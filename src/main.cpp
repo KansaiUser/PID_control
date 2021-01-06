@@ -34,11 +34,11 @@ void resetSim(uWS::WebSocket<uWS::SERVER> ws){
     std::string reset_msg = "42[\"reset\",{}]";
     ws.send(reset_msg.data(), reset_msg.length(), uWS::OpCode::TEXT);
 }
-void resetErrors(double &err ){
+/*void resetErrors(double &err ){
 
     err=0;
 }
-
+*/
 
 
 int main(int argc, char *argv[]) {
@@ -55,6 +55,11 @@ int main(int argc, char *argv[]) {
 //  bool twiddle = false; //true;
   double p[3] = {0.2, 0.0004, 3.0};
   double dp[3] = {.1, .0001, .1};
+  bool first_time=true;
+  int n=0;
+  int max_n=100;
+  //double elerror;
+  double best_error;
   
   /**pid.Init(p[0],p[1],p[2]);
    * TODO: Initialize the pid variable.
@@ -70,7 +75,7 @@ int main(int argc, char *argv[]) {
   }
   std::cout<<"Twiddle: "<<twiddle<<std::endl;
 
-  h.onMessage([&pid, &p, &dp ,&twiddle]
+  h.onMessage([&pid, &p, &dp ,&twiddle, &first_time,&n, &max_n, &best_error]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -100,7 +105,35 @@ int main(int argc, char *argv[]) {
       
 	      if(twiddle){
 			  
-
+            if(first_time){  //Run the robot once before twiddle looping
+               if(n==0){
+                   pid.Init(p[0],p[1],p[2]);  //reset
+               }
+               n++;
+               
+               pid.UpdateError(cte);  //update the errors
+               steer_value = pid.GetResult();
+               if(steer_value>1) steer_value=1;
+               if(steer_value<-1) steer_value=-1;
+               msgJson["steering_angle"] = steer_value;
+               msgJson["throttle"] = 0.3;
+               auto msg = "42[\"steer\"," + msgJson.dump() + "]";
+               //std::cout << msg << std::endl;
+               std::cout<<n<<" ";
+               ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+               if(n>=max_n){  //start calculating error
+                    double elerror= pid.TotalError();  //here it is acumulating the error
+                    std::cout<<"el error: "<<elerror<<std::endl;
+                    //elerror= elerror/(max_n);
+                    if(n>=(2*max_n)){
+                        //first_time=false;
+                        best_error= elerror/(max_n); 
+                        std::cout<<"Best Error: "<<best_error<<std::endl;
+                        resetSim(ws);  //Reset the simulation
+                        twiddle=false;
+                    }
+               }
+            }//first time end
 
 
           }
@@ -109,6 +142,10 @@ int main(int argc, char *argv[]) {
           // (it is the equivalent to y_trajectory in the python)
           // We have a CTE that we want to make 0 with PID
           // that is equivalent to robot.y in the python lessons
+          if(first_time){
+              pid.Reset();
+              first_time=false;
+          }
 
           pid.UpdateError(cte);  //update the errors
           steer_value = pid.GetResult();

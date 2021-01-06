@@ -1,4 +1,5 @@
 #include "PID.h"
+#include <math.h>
 
 /**
  * TODO: Complete the PID class. You may add any additional desired functions.
@@ -20,8 +21,12 @@ void PID::Init(double Kp_, double Ki_, double Kd_) {
   //sum_cte=0;
   total_error=0;
   i_error=0;
-
-
+}
+void PID::Reset(){
+  previous_cte=0;  //perhaps change this
+  //sum_cte=0;
+  total_error=0;
+  i_error=0;
 }
 
 void PID::UpdateError(double cte) {
@@ -35,11 +40,16 @@ void PID::UpdateError(double cte) {
   previous_cte = cte;
 }
 
+// Here we have replaced the original intention of this function. 
+//The original functionality is done on GetResult
+//This only calculates the error
 double PID::TotalError() {
   /**
    * TODO: Calculate and return the total error
    */
-  return 0.0;  // TODO: Add your total error calc here!
+  total_error+= pow(p_error,2);
+  return total_error;
+//  return 0.0;  // TODO: Add your total error calc here!
 }
 
 double PID::GetResult(){
