@@ -44,10 +44,12 @@ enum state{
 int main(int argc, char *argv[]) {
   uWS::Hub h;
   bool twiddle=false;
+  int max_n=1000;//500;//1000;
 
   std::cout << "There are " << argc << " arguments:\n";
   if((argc>1)&& (std::string(argv[1])=="twiddle")  ){
       twiddle= true; //by default
+      
   }
   
 
@@ -57,11 +59,11 @@ int main(int argc, char *argv[]) {
   double dp[3] = {.1, .0001, .1};
   bool first_time=true;
   int n=0;
-  int max_n=1000;
+  
   //double elerror;
   double best_error;
   double run_error;
-  double tolerance=0.001;
+  double tolerance=0.01; //0.001;
   double twi_i=0;
   int fails=0;
 
@@ -78,7 +80,9 @@ int main(int argc, char *argv[]) {
     pid.Init(p[0],p[1],p[2]);
   }
   else{
-	pid.Init(0.2,0.0004,3.0); // For some reason this works to some extend but it does not improve PD  
+//	pid.Init(0.2,0.0004,3.0); // For some reason this works to some extend but it does not improve PD
+    pid.Init(0.2,0.0005,3.0);  //This is the result of the twiddle with max_n 1000
+ //   pid.Init(0.537177, 0.000346487, 3.20147);  //does not work
   }
   std::cout<<"Twiddle: "<<twiddle<<std::endl;
 
@@ -153,15 +157,24 @@ int main(int argc, char *argv[]) {
                    twiddle=false;
                    resetSim(ws);
                    pid.Init(p[0],p[1],p[2]);  //final reset
+                   // Manual driving
+                     string msg = "42[\"manual\",{}]";
+                    ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
                }
                else{
                    if(robot_state==prerun){
                        if(p_iterator==0)
                            std::cout<<"Iteration: "<<twi_i<<" best error: "<<best_error<<std::endl;
-                           std::cout<<"Sumdp is: "<<sumdp<<std::endl;
+                        std::cout<<"Sumdp is: "<<sumdp<<std::endl;
                        //TODO modify p[i]
                        p[p_iterator] += dp[p_iterator];
-                       std::cout<<"Trial with P's "<<p[0]<<" | "<<p[1]<<" | "<<p[2]<<std::endl;
+                       if(p_iterator==0)
+                           std::cout<<"Trial with P's ["<<p[0]<<"] | "<<p[1]<<" | "<<p[2]<<std::endl;
+                       else if (p_iterator==1)
+                            std::cout<<"Trial with P's "<<p[0]<<" | ["<<p[1]<<"] | "<<p[2]<<std::endl;
+                       else
+                           std::cout<<"Trial with P's "<<p[0]<<" | "<<p[1]<<" | ["<<p[2]<<"]"<<std::endl;
+
                        resetSim(ws);
                        pid.Init(p[0],p[1],p[2]);
                        robot_state=running;
@@ -187,7 +200,7 @@ int main(int argc, char *argv[]) {
                            if(n>=(2*max_n)){
                               robot_state=postrun;
                               run_error= elerror/(max_n); 
-                              std::cout<<"This Run Error: "<<run_error<<std::endl;
+                              std::cout<<"This Run Error: "<<run_error<<"(best: "<<best_error<<")"<<std::endl;
                               resetSim(ws);  //Reset the simulation
                              //twiddle=false;
                            }
@@ -224,13 +237,10 @@ int main(int argc, char *argv[]) {
                       robot_state=prerun;
                       
                    }
-                  //p[i]
-
+                  
                }
 
-
             }
-
 
           }
 		  else{  //Not twiddle
