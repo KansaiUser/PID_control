@@ -45,3 +45,6 @@ On the other hand a big D stabilize the vehicle.
 I could not see much influence of the I parameter, and once the vehicle could complete the lap with I set to 0.
 
 However I think that when a bias is inherent on the vehicle, I can have a correcting influence to the algorithm
+
+## Video
+You can find a video of the normal run (not twiddle) [here](https://www.youtube.com/watch?v=ZYqazWCYQa8)
